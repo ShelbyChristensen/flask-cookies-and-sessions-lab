@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from flask import Flask, make_response, jsonify, session
+from flask import Flask, request, jsonify, session
+
 from flask_migrate import Migrate
 
 from models import db, Article, User, ArticleSchema, UserSchema
@@ -25,21 +26,31 @@ def index_articles():
     articles = [ArticleSchema().dump(a) for a in Article.query.all()]
     return make_response(articles)
 
-@app.route('/articles/<int:id>')
-def show_article(id):
-    if 'page_views' not in session:
-        session['page_views'] = 0
 
-    session['page_views'] += 1
+@app.route('/articles/<int:id>', methods=['GET'])
+def show_article(id):
+    article = Article.query.get(id)
+    
+    if not article:
+        return jsonify({'error': 'Article not found'}), 404
+
+    # Initialize session if it doesn't exist
+    session['page_views'] = session.get('page_views', 0) + 1
 
     if session['page_views'] > 3:
         return jsonify({'message': 'Maximum pageview limit reached'}), 401
 
-    article = Article.query.get(id)
-    if not article:
-        return jsonify({'error': 'Article not found'}), 404
+    return jsonify({
+        'id': article.id,
+        'title': article.title,
+        'content': article.content,
+        'preview': article.preview,
+        'minutes_to_read': article.minutes_to_read,
+        'date': article.date,
+        'author': article.user.name if article.user else "Unknown"
+    }), 200
 
-    return ArticleSchema().dump(article), 200
+
 
 
 
